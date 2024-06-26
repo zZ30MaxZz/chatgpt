@@ -22,8 +22,10 @@
     const $info = $('small')
     const $loading = $('.loading')
 
-    let messages = []
-    let end = false
+    let messages = [];
+    let end = false;
+    let voiceBuffer = ""
+    let isSpeaking = false
 
     // const SELECTED_MODEL = 'Llama-3-8B-Instruct-q4f32_1-MLC-1k'
     // const SELECTED_MODEL = 'gemma-2b-it-q4f32_1-MLC'
@@ -38,9 +40,13 @@
           if (info.progress === 1 && !end) {
             end = true
             $loading?.parentNode?.removeChild($loading)
-            $button.removeAttribute('disabled')
-            addMessage("¡Hola! Soy un ChatGPT que se ejecuta completamente en tu navegador. ¿En qué puedo ayudarte hoy?", 'bot')
-            $input.focus()
+            $button.removeAttribute('disabled');
+
+            voiceBuffer = '¡Hola! Soy un ChatGPT que se ejecuta completamente en tu navegador. ¿En qué puedo ayudarte hoy?';
+            addMessage(voiceBuffer, 'bot');
+            
+            processVoiceBuffer();
+            $input.focus();
           }
         }
       }
@@ -80,11 +86,17 @@
         reply += content
         $botMessage.textContent = reply;
 
+        voiceBuffer += content
+        if (!isSpeaking) {
+          processVoiceBuffer();
+        }
+
         if ($container.scrollHeight > currentHeight) {
           currentHeight = $container.scrollHeight
           $container.scrollTop = $container.scrollHeight
         }
       }
+
 
       $button.removeAttribute('disabled')
       messages.push({
@@ -109,6 +121,23 @@
       $container.scrollTop = $container.scrollHeight
 
       return $text
+    }
+
+    function processVoiceBuffer() {
+      if (voiceBuffer.length > 0) {
+        isSpeaking = true;
+        const utterance = new SpeechSynthesisUtterance(voiceBuffer);
+        const voices = speechSynthesis.getVoices();
+        utterance.voice = voices[3];
+
+        utterance.onend = () => {
+          isSpeaking = false;
+          processVoiceBuffer();
+        };
+
+        voiceBuffer = "";
+        speechSynthesis.speak(utterance);
+      }
     }
   </script>
 </head>
