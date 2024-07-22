@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatGPT Local</title>
+  <link rel="stylesheet" href="pico.min.css" />
+  <link rel="stylesheet" href="styles.css" />
+
+  <script type="module">
+    import { CreateWebWorkerMLCEngine } from "https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.46/+esm"
+
+    const $ = el => document.querySelector(el);
+    let listModels = [];
+    let selectedModel = '';
+    const selectModel = document.getElementById("selectModel");
+
+    listModels.push("Qwen2-1.5B-Instruct-q4f32_1-MLC");
+    listModels.push("Llama-3-8B-Instruct-q4f32_1-MLC-1k");
+    listModels.push("Qwen2-7B-Instruct-q4f32_1-MLC");
+
+    const loadModels = () => {
+
+      listModels.forEach(element => {
+        const option = document.createElement("option");
+        option.value = element;
+        option.text = element;
+
+        selectModel.appendChild(option);
+      });
+    }
+
+    loadModels();
+
+    const $form = $('form')
+    const $input = $('input')
+    const $template = $('#message-template')
+    const $messages = $('ul')
+    const $container = $('main')
+    const $button = $('button')
+    const $info = $('#infoLoading')
+    const $loading = $('.loading')
+
+    let messages = [];
+    let end = false;
+    let voiceBuffer = ""
+    let isSpeaking = false;
+
+    let engine;
+
+    selectModel.addEventListener("change", async (event) => {
+      selectedModel = event.target.value;
+      console.log(selectedModel);
+
+      engine = await CreateWebWorkerMLCEngine(
+        new Worker('./worker.js', { type: 'module' }),
+        selectedModel,
+        {
+          initProgressCallback: (info) => {
+            $info.textContent = info.text
+            if (info.progress === 1 && !end) {
+              end = true
+              $loading?.parentNode?.removeChild($loading)
+              $button.removeAttribute('disabled');
+
+              voiceBuffer = '¡Hola! Soy un ChatGPT, ¿Cómo puedo ayudarte?';
+
+              addMessage(voiceBuffer, 'bot');
+
+              processVoiceBuffer();
+              $input.focus();
+            }
+          }
+        }
+      )
+    });
+
+    $form.addEventListener('submit', async (event) => {
+      event.preventDefault()
+      const messageText = $input.value.trim()
+
+      if (messageText !== '') {
+        $input.value = ''
+      }
+
+      addMessage(messageText, 'user')
+      $button.setAttribute('disabled', '')
+
+      const userMessage = {
+        role: 'user',
+        content: messageText
+      }
+
+      messages.push(userMessage)
+
+      const chunks = await engine.chat.completions.create({
+        messages,
+        stream: true
+      })
+
+      let reply = ""
+
+      const $botMessage = addMessage("", 'bot')
+      let currentHeight = $container.scrollHeight;
+
+      for await (const chunk of chunks) {
+        const choice = chunk.choices[0]
+        const content = choice?.delta?.content ?? ""
+        reply += content
+        $botMessage.textContent = reply;
+
+        voiceBuffer += content
+        if (!isSpeaking) {
+          processVoiceBuffer();
+        }
+
+        if ($container.scrollHeight > currentHeight) {
+          currentHeight = $container.scrollHeight
+          $container.scrollTop = $container.scrollHeight
+        }
+      }
+
+      $button.removeAttribute('disabled')
+      messages.push({
+        role: 'assistant',
+        content: reply
+      })
+    })
+
+    function addMessage(text, sender) {
+      const clonedTemplate = $template.content.cloneNode(true)
+      const $newMessage = clonedTemplate.querySelector('.message')
+
+      const $who = $newMessage.querySelector('span')
+      const $text = $newMessage.querySelector('p')
+
+      $text.textContent = text
+      $who.textContent = sender === 'bot' ? '🤖 AI' : 'Tú'
+      $newMessage.classList.add(sender)
+
+      $messages.appendChild($newMessage)
+
+      $container.scrollTop = $container.scrollHeight
+
+      return $text
+    }
+
+    function processVoiceBuffer() {
+      if (voiceBuffer.length > 0) {
+        isSpeaking = true;
+        const utterance = new SpeechSynthesisUtterance(voiceBuffer);
+        const voices = speechSynthesis.getVoices();
+        utterance.voice = voices[3];
+
+        utterance.onend = () => {
+          isSpeaking = false;
+          processVoiceBuffer();
+        };
+
+        voiceBuffer = "";
+        speechSynthesis.speak(utterance);
+      }
+    }
+  </script>
+</head>
+
+<body>
+  <main class="container-fluid">
+    <div class="grid">
+      <div>
+        <article>
+          <label for="selectModel">Modelos</label>
+          <select id="selectModel" name="select-model" aria-label="Selecciona un modelo" required>
+            <option selected disabled value="">
+              Selecciona un modelo
+            </option>
+          </select>
+          <small>Modelos <a href="https://huggingface.co/mlc-ai" target="_blank">huggingface</a></small>
+        </article>
+        <article>
+          <h3>Ventajas</h3>
+          <ol>
+            <li>
+              <div>Después de descargar el modelo GPT el chat funciona sin Internet</div>
+            </li>
+            <li>
+              <div>Es fácil de customizar de acuerdo a las necesidades(Solo para generar texto)</div>
+            </li>
+            <li>
+              <div>Podemos cambiar el modelo fácilmente</div>
+            </li>
+          </ol>
+        </article>
+      </div>
+      <div>
+        <div class="title-header">
+          <img src="logo.jpeg" alt="">
+          <h2>Indivisa Manent</h2>
+        </div>
+        <main>
+          <ul>
+            <li class="loading">
+              <span aria-busy="true">Cargando...</span>
+            </li>
+          </ul>
+        </main>
+        <form>
+          <input placeholder="Escribe tu mensaje aquí...">
+          <button class="outline" disabled>Enviar</button>
+        </form>
+        <small id="infoLoading">&nbsp;</small>
+      </div>
+    </div>
+
+    <template id="message-template">
+      <li class="message">
+        <span></span>
+        <p></p>
+      </li>
+    </template>
+  </main>
+</body>
+
+</html>

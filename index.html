@@ -11,27 +11,7 @@
   <script type="module">
     import { CreateWebWorkerMLCEngine } from "https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.46/+esm"
 
-    const $ = el => document.querySelector(el);
-    let listModels = [];
-    let selectedModel = '';
-    const selectModel = document.getElementById("selectModel");
-
-    listModels.push("Qwen2-1.5B-Instruct-q4f32_1-MLC");
-    listModels.push("Llama-3-8B-Instruct-q4f32_1-MLC-1k");
-    listModels.push("Qwen2-7B-Instruct-q4f32_1-MLC");
-
-    const loadModels = () => {
-
-      listModels.forEach(element => {
-        const option = document.createElement("option");
-        option.value = element;
-        option.text = element;
-
-        selectModel.appendChild(option);
-      });
-    }
-
-    loadModels();
+    const $ = el => document.querySelector(el)
 
     const $form = $('form')
     const $input = $('input')
@@ -39,7 +19,7 @@
     const $messages = $('ul')
     const $container = $('main')
     const $button = $('button')
-    const $info = $('#infoLoading')
+    const $info = $('small')
     const $loading = $('.loading')
 
     let messages = [];
@@ -47,31 +27,30 @@
     let voiceBuffer = ""
     let isSpeaking = false
 
-    selectModel.addEventListener("change", async (event) => {
-      selectedModel = event.target.value;
-      console.log(selectedModel);
+    // const SELECTED_MODEL = 'Llama-3-8B-Instruct-q4f32_1-MLC-1k'
+    // const SELECTED_MODEL = 'gemma-2b-it-q4f32_1-MLC'
+    const SELECTED_MODEL = 'Qwen2-1.5B-Instruct-q4f32_1-MLC'
 
-      const engine = await CreateWebWorkerMLCEngine(
-        new Worker('./worker.js', { type: 'module' }),
-        selectedModel,
-        {
-          initProgressCallback: (info) => {
-            $info.textContent = info.text
-            if (info.progress === 1 && !end) {
-              end = true
-              $loading?.parentNode?.removeChild($loading)
-              $button.removeAttribute('disabled');
+    const engine = await CreateWebWorkerMLCEngine(
+      new Worker('./worker.js', { type: 'module' }),
+      SELECTED_MODEL,
+      {
+        initProgressCallback: (info) => {
+          $info.textContent = info.text
+          if (info.progress === 1 && !end) {
+            end = true
+            $loading?.parentNode?.removeChild($loading)
+            $button.removeAttribute('disabled');
 
-              voiceBuffer = '¡Hola! Soy un ChatGPT creado por el 4to grado de Indivisa Manent';
-              addMessage(voiceBuffer, 'bot');
-
-              processVoiceBuffer();
-              $input.focus();
-            }
+            voiceBuffer = '¡Hola! Soy un ChatGPT, ¿Cómo puedo ayudarte?';
+            addMessage(voiceBuffer, 'bot');
+            
+            processVoiceBuffer();
+            $input.focus();
           }
         }
-      )
-    });
+      }
+    )
 
     $form.addEventListener('submit', async (event) => {
       event.preventDefault()
@@ -118,6 +97,7 @@
         }
       }
 
+
       $button.removeAttribute('disabled')
       messages.push({
         role: 'assistant',
@@ -148,7 +128,7 @@
         isSpeaking = true;
         const utterance = new SpeechSynthesisUtterance(voiceBuffer);
         const voices = speechSynthesis.getVoices();
-        utterance.voice = voices[3];
+        utterance.voice = voices[1];
 
         utterance.onend = () => {
           isSpeaking = false;
@@ -165,20 +145,12 @@
 <body>
   <div class="grid">
     <div class="container">
-      <label for="selectModel">Modelos</label>
-      <select id="selectModel" name="select-model" aria-label="Selecciona un modelo" required>
-        <option selected disabled value="">
-          Selecciona un modelo
-        </option>
-      </select>
-      <small>Modelos <a href="https://huggingface.co/mlc-ai" target="_blank">huggingface</a></small>
-    </div>
-    <div class="container">
       <div class="title-header">
         <img src="logo.jpeg" alt="">
         <h2>Indivisa Manent</h2>
       </div>
-      <main>
+      <span class="spanInfo">Eureka 2024 - 4to</span>
+      <main> 
         <ul>
           <li class="loading">
             <span aria-busy="true">Cargando...</span>
@@ -189,7 +161,11 @@
         <input placeholder="Escribe tu mensaje aquí...">
         <button class="outline" disabled>Enviar</button>
       </form>
-      <small id="infoLoading">&nbsp;</small>
+      <small>&nbsp;</small>
+      <span class="spanInfo"><a href="https://zz30maxzz.github.io/chatgpt/" target="_blank">Versión con Internet</a></span>
+      <span class="spanInfo"><a href="/v2">Versión 2.0</a></span>
+      <span class="spanInfo">Modelo: Qwen2-1.5B-Instruct-q4f32_1-MLC</span>
+      <span class="spanInfo">Más modelos: <a href="https://huggingface.co/models">link</a></span>
     </div>
   </div>
 
